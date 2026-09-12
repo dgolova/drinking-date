@@ -382,6 +382,7 @@ import { WOUND_INFO, QUIZ_QUESTIONS, WOUND_GUIDE } from './assets/data/trauma-te
 import { ARCHETYPE_GUIDE, ARCHETYPE_INFO, ARCHETYPE_QUESTIONS } from './assets/data/men-archetypes-test.js';
 import { ARCHETYPE_GUIDE_F, ARCHETYPE_INFO_F, ARCHETYPE_QUESTIONS_F } from './assets/data/women-archetypes-test.js';
 import { MBTI_QUESTIONS, MBTI_TYPES, MBTI_GUIDE } from './assets/data/mbti-test.js';
+import { STRESS_STYLE_QUESTIONS, STRESS_STYLE_INFO, STRESS_STYLE_GUIDE } from './assets/data/stress-style-test.js';
 
 (function(){
 
@@ -521,6 +522,19 @@ import { MBTI_QUESTIONS, MBTI_TYPES, MBTI_GUIDE } from './assets/data/mbti-test.
         guideColumns: ['Type', 'Core Strengths', 'Common Weaknesses', 'High-Compatibility Matches'],
         guideRows: MBTI_GUIDE.map(function(r){ return [r.type, r.strengths, r.weaknesses, r.matches]; }),
         guideQuoteCol: null
+      },
+      {
+        key: 'stressstyle',
+        tagline: 'Your Stress & Personality Style',
+        goal: 'A 20-question true/false look at how you handle pressure day to day.',
+        questions: STRESS_STYLE_QUESTIONS,
+        resultInfo: STRESS_STYLE_INFO,
+        baselineKey: null,
+        secondaryThreshold: 100,
+        guideLabel: 'Patterns',
+        guideColumns: ['Style', 'What it\u2019s about', 'When it runs high', 'When it runs low'],
+        guideRows: STRESS_STYLE_GUIDE.map(function(r){ return [r.type, r.focus, r.high, r.low]; }),
+        guideQuoteCol: null
       }
     ];
 
@@ -618,7 +632,7 @@ import { MBTI_QUESTIONS, MBTI_TYPES, MBTI_GUIDE } from './assets/data/mbti-test.
         b.className = 'quiz-option';
         b.textContent = opt.text;
         b.addEventListener('click', function(){
-          scores[opt.w] = (scores[opt.w] || 0) + 1;
+          if (opt.w){ scores[opt.w] = (scores[opt.w] || 0) + 1; }
           qIndex++;
           if (qIndex < total){
             renderQuestion();
@@ -657,7 +671,7 @@ import { MBTI_QUESTIONS, MBTI_TYPES, MBTI_GUIDE } from './assets/data/mbti-test.
       var maxByKey = {};
       activeTest.questions.forEach(function(q){
         q.options.forEach(function(opt){
-          maxByKey[opt.w] = (maxByKey[opt.w] || 0) + 1;
+          if (opt.w){ maxByKey[opt.w] = (maxByKey[opt.w] || 0) + 1; }
         });
       });
 
