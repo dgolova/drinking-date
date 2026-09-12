@@ -246,6 +246,7 @@
   }
 
   /* ---------- Wound guide (reference table) ---------- */
+  .test-block + .test-block{ margin-top: 22px; }
   .test-row{ display:flex; align-items:stretch; gap: 10px; margin-bottom: 20px; }
   .test-row .cat-grid{ flex:1; margin-bottom:0; }
   .guide-btn{
@@ -354,11 +355,7 @@
   <section class="section">
     <h2 class="section-title">Tests</h2>
 
-    <div class="test-row">
-      <div class="cat-grid" id="testGrid" style="grid-template-columns: 1fr;"></div>
-      <button class="guide-btn" id="woundGuideBtn">Trauma<br>Guide</button>
-    </div>
-    <div class="wound-guide-panel hidden" id="woundGuidePanel"></div>
+    <div id="testsList"></div>
 
     <div id="quizView" class="hidden">
       <div class="quiz-progress" id="quizProgress"></div>
@@ -724,7 +721,7 @@
   setupQuestionSection('catGrid', 'cardView', 'resultSlot', 'drawAnotherBtn', 'changeCatBtn', CATEGORIES);
   setupQuestionSection('bachCatGrid', 'bachCardView', 'bachResultSlot', 'bachDrawAnotherBtn', 'bachChangeCatBtn', CATEGORIES_BACH);
 
-  // ---------- Tests: quiz engine ----------
+  // ---------- Tests: quiz engine (supports multiple tests, each with its own guide) ----------
   (function setupTests(){
     var WOUND_GUIDE = [
       { type: 'Empath, caregiver, rescuer', belief: '\u201cI\u2019m valued only if I\u2019m useful.\u201d', wound: 'Feeling unneeded / emotional neglect', trigger: 'Not expressing gratitude, not needing their help, excluding them from important matters, showing that everything works fine without them.' },
@@ -739,43 +736,299 @@
       { type: 'Confident leader', belief: '\u201cI can handle this.\u201d', wound: 'May not have a dominant core wound', trigger: 'Usually doesn\u2019t have one specific trigger; reactions depend more on personality, values, and life experiences than on a single underlying wound.' }
     ];
 
-    var woundGuideBtn = document.getElementById('woundGuideBtn');
-    var woundGuidePanel = document.getElementById('woundGuidePanel');
-    var guideBuilt = false;
+    var ARCHETYPE_GUIDE = [
+      { type: 'King', need: 'Respect, influence, stability', fear: 'Losing authority', love: 'When they trust him, seek his advice, and acknowledge his contribution.' },
+      { type: 'Warrior', need: 'Purpose, challenge, victory', fear: 'Being weak or useless', love: 'When there\u2019s someone nearby who admires his strength and supports his path.' },
+      { type: 'Sage', need: 'Understanding, knowledge, freedom to think', fear: 'Stupidity, superficiality', love: 'Deep conversations, intellectual respect, the chance to teach.' },
+      { type: 'Lover', need: 'Emotion, closeness, beauty', fear: 'Coldness, emotional rejection', love: 'Physical tenderness, romance, emotional openness.' },
+      { type: 'Explorer', need: 'Freedom, novelty', fear: 'Being limited', love: 'When a partner doesn\u2019t try to control him and shares in the adventure.' },
+      { type: 'Creator', need: 'Self-expression', fear: 'Routine and mediocrity', love: 'When his ideas inspire and his uniqueness is valued.' },
+      { type: 'Caregiver', need: 'Being needed', fear: 'Becoming unneeded', love: 'When his care is accepted with gratitude, not taken advantage of.' },
+      { type: 'Rebel', need: 'Independence', fear: 'Losing himself', love: 'When a partner respects his individuality and doesn\u2019t try to remake him.' }
+    ];
 
-    woundGuideBtn.addEventListener('click', function(){
-      if (!guideBuilt){
-        var headers = ['Personality type', 'Core belief', 'Likely underlying wound', 'What typically triggers the wound'];
-        var html = '<div class="wg-scroll"><div class="wg-grid">';
-        headers.forEach(function(h){
-          html += '<div class="wg-cell wg-head' + (h === 'Personality type' ? ' wg-sticky' : '') + '">' + h + '</div>';
-        });
-        WOUND_GUIDE.forEach(function(row, i){
-          var alt = (i % 2 === 1) ? ' wg-alt' : '';
-          html += '<div class="wg-cell' + alt + ' wg-sticky">' + row.type + '</div>';
-          html += '<div class="wg-cell' + alt + '"><span class="wg-belief-text">' + row.belief + '</span></div>';
-          html += '<div class="wg-cell' + alt + '">' + row.wound + '</div>';
-          html += '<div class="wg-cell' + alt + '">' + row.trigger + '</div>';
-        });
-        html += '</div></div>';
-        woundGuidePanel.innerHTML = html;
-        guideBuilt = true;
-      }
-      var isHidden = woundGuidePanel.classList.contains('hidden');
-      woundGuidePanel.classList.toggle('hidden');
-      woundGuideBtn.innerHTML = isHidden ? 'Hide<br>Trauma<br>Guide' : 'Trauma<br>Guide';
-    });
+    var ARCHETYPE_INFO = {
+      A1: { name: 'The King', short: 'Respect, influence, stability', blurb: 'You lead best when people trust your judgment and let you set the direction. Losing authority stings \u2014 what makes you feel truly valued is being consulted and having your contributions recognized.' },
+      A2: { name: 'The Warrior', short: 'Purpose, challenge, victory', blurb: 'You\u2019re at your best chasing a goal worth fighting for. Feeling weak or useless is the real threat; what lands is a partner who admires your strength and stands behind your fight.' },
+      A3: { name: 'The Sage', short: 'Understanding, knowledge, freedom to think', blurb: 'Depth is what draws you in \u2014 ideas, mastery, understanding how things really work. Shallow talk drains you, while real conversation and the space to teach make you feel appreciated.' },
+      A4: { name: 'The Lover', short: 'Emotion, closeness, beauty', blurb: 'Connection is the whole point for you \u2014 romance, warmth, feeling something fully. Emotional distance cuts deep, while tenderness and openness make you feel completely at home.' },
+      A5: { name: 'The Explorer', short: 'Freedom, novelty', blurb: 'Being boxed in is your least favorite feeling. You come alive with new experiences, and you feel loved when a partner gives you room to roam instead of holding on tight.' },
+      A6: { name: 'The Creator', short: 'Self-expression', blurb: 'Routine wears you down fast \u2014 you need to make things, chase ideas, put your own stamp on the world. Having your originality noticed and encouraged is what really lands.' },
+      A7: { name: 'The Caregiver', short: 'Being needed', blurb: 'Providing for the people you love is core to who you are. Feeling unnecessary is hard to sit with, so having your care met with real gratitude \u2014 not taken for granted \u2014 is what makes you feel loved.' },
+      A8: { name: 'The Rebel', short: 'Independence', blurb: 'Staying true to yourself matters more than fitting in. Losing that sense of self is your biggest fear; you feel most loved when someone respects who you are instead of trying to reshape you.' }
+    };
+
+    var ARCHETYPE_QUESTIONS = [
+      { prompt: 'What gives you the greatest sense of personal fulfillment in life?', options: [
+        { text: 'Building a stable empire, business, or family where my guidance leads the way.', w: 'A1' },
+        { text: 'Setting ambitious goals, overcoming tough challenges, and winning.', w: 'A2' },
+        { text: 'Understanding how the world works and reaching deep mastery in my field.', w: 'A3' },
+        { text: 'Building deep emotional connections, sharing passion, and experiencing life\u2019s beauty.', w: 'A4' },
+        { text: 'Exploring new horizons, traveling, and living without strict limitations.', w: 'A5' },
+        { text: 'Bringing unique ideas to life and creating something original.', w: 'A6' },
+        { text: 'Knowing that the people I care about are safe, protected, and supported by me.', w: 'A7' },
+        { text: 'Breaking outdated rules, staying completely independent, and carving my own path.', w: 'A8' }
+      ]},
+      { prompt: 'What is your single biggest fear or stressor?', options: [
+        { text: 'Losing my authority, status, or control over what I\u2019ve built.', w: 'A1' },
+        { text: 'Feeling weak, helpless, or useless in a crisis.', w: 'A2' },
+        { text: 'Being forced into shallow, superficial environments or feeling ignorant.', w: 'A3' },
+        { text: 'Experiencing emotional coldness, rejection, or lack of connection from loved ones.', w: 'A4' },
+        { text: 'Being trapped in a predictable, repetitive routine with no freedom.', w: 'A5' },
+        { text: 'Being forced to conform to mediocrity and losing my creative spark.', w: 'A6' },
+        { text: 'Becoming irrelevant or finding out that my care and efforts aren\u2019t needed.', w: 'A7' },
+        { text: 'Losing my personal identity and letting society or a partner control me.', w: 'A8' }
+      ]},
+      { prompt: 'You feel most deeply loved and respected by your partner when she\u2026', options: [
+        { text: 'Trusts my decisions, seeks my counsel, and acknowledges my leadership.', w: 'A1' },
+        { text: 'Admires my strength, stands by my side, and respects my drive.', w: 'A2' },
+        { text: 'Engages in deep intellectual conversations and respects my need to think.', w: 'A3' },
+        { text: 'Shows physical tenderness, romantic openness, and emotional warmth.', w: 'A4' },
+        { text: 'Gives me freedom, avoids controlling me, and joins me on spontaneous adventures.', w: 'A5' },
+        { text: 'Values my unique perspective, encourages my vision, and gets inspired by my ideas.', w: 'A6' },
+        { text: 'Accepts my care with genuine gratitude without taking me for granted.', w: 'A7' },
+        { text: 'Respects my individuality and never attempts to change or tame me.', w: 'A8' }
+      ]},
+      { prompt: 'When a major conflict arises in a relationship or work setting, how do you handle it?', options: [
+        { text: 'I step back, evaluate the big picture objectively, and issue a clear decision.', w: 'A1' },
+        { text: 'I face it directly head-on, push through resistance, and fight for a resolution.', w: 'A2' },
+        { text: 'I analyze the logic behind the disagreement and seek facts before speaking.', w: 'A3' },
+        { text: 'I address the emotional heart of the issue to restore closeness and warmth.', w: 'A4' },
+        { text: 'I step out of the high-pressure zone to gain perspective and protect my space.', w: 'A5' },
+        { text: 'I look for an unconventional, out-of-the-box solution nobody else considered.', w: 'A6' },
+        { text: 'I prioritize keeping everyone safe and supported, sacrificing my comfort if needed.', w: 'A7' },
+        { text: 'I challenge the status quo directly and refuse to surrender my principles.', w: 'A8' }
+      ]},
+      { prompt: 'How would you choose to spend an ideal weekend?', options: [
+        { text: 'Hosting a gathering of key people, reviewing long-term plans, or managing projects.', w: 'A1' },
+        { text: 'Engaging in intense physical training, sports, or taking on a demanding project.', w: 'A2' },
+        { text: 'Reading books, researching a passion topic, or attending a lecture or workshop.', w: 'A3' },
+        { text: 'A romantic getaway, a candlelit dinner, or immersing in art and sensory experiences.', w: 'A4' },
+        { text: 'Packing a bag for an unplanned road trip or outdoors expedition.', w: 'A5' },
+        { text: 'Working on a personal creative design, building a prototype, or artistic project.', w: 'A6' },
+        { text: 'Hosting family or close friends, cooking a big meal, and taking care of home.', w: 'A7' },
+        { text: 'Going somewhere off the grid, breaking out of routine, doing things on my terms.', w: 'A8' }
+      ]},
+      { prompt: 'What is the core quality you bring to a romantic partnership?', options: [
+        { text: 'Stability, direction, and long-term protection.', w: 'A1' },
+        { text: 'Determination, loyalty, and a drive to protect and conquer goals together.', w: 'A2' },
+        { text: 'Depth, wisdom, and reasoned guidance.', w: 'A3' },
+        { text: 'Passion, romantic intensity, and emotional intimacy.', w: 'A4' },
+        { text: 'Excitement, growth, and continuous fresh experiences.', w: 'A5' },
+        { text: 'Inspiration, originality, and a unique way of looking at the world.', w: 'A6' },
+        { text: 'Nurturing support, dependability, and unconditional care.', w: 'A7' },
+        { text: 'Raw authenticity, freedom, and refusal to let life become boring.', w: 'A8' }
+      ]},
+      { prompt: 'What role do you naturally fall into within a team project?', options: [
+        { text: 'The Commander: delegating responsibilities, holding accountability, directing strategy.', w: 'A1' },
+        { text: 'The Executor: taking on the hardest tasks and driving execution to the finish line.', w: 'A2' },
+        { text: 'The Strategist: analyzing data, troubleshooting technical flaws, providing logic.', w: 'A3' },
+        { text: 'The Connector: keeping group morale high, resolving tensions, fostering empathy.', w: 'A4' },
+        { text: 'The Scout: looking for new trends, untapped markets, and external opportunities.', w: 'A5' },
+        { text: 'The Innovator: pitching radical new concepts, branding, and original designs.', w: 'A6' },
+        { text: 'The Supporter: assisting team members, organizing resources, ensuring well-being.', w: 'A7' },
+        { text: 'The Disruptor: questioning outdated methods, cutting bureaucracy, pushing boundaries.', w: 'A8' }
+      ]},
+      { prompt: 'How do you react when hit with strict rules, rigid protocols, or heavy bureaucracy?', options: [
+        { text: 'I restructure them so I hold the authority to streamline the process.', w: 'A1' },
+        { text: 'I treat it as an obstacle to overpower or bypass efficiently.', w: 'A2' },
+        { text: 'I analyze the rules to see if they are logically sound; if not, I point out the flaws.', w: 'A3' },
+        { text: 'I adapt if it maintains harmony, but resist if it feels cold and anti-human.', w: 'A4' },
+        { text: 'I feel suffocated and immediately look for an exit route or shortcut.', w: 'A5' },
+        { text: 'I ignore the formula and build my own custom solution.', w: 'A6' },
+        { text: 'I comply if it keeps my loved ones or team safe and secure.', w: 'A7' },
+        { text: 'I actively defy them \u2014 rules exist to be broken.', w: 'A8' }
+      ]},
+      { prompt: 'When you look back on your life decades from now, what matters to you most?', options: [
+        { text: 'That I built something lasting and left a strong empire or legacy behind.', w: 'A1' },
+        { text: 'That I fought hard, faced my battles, and won.', w: 'A2' },
+        { text: 'That I gained true understanding and mastered deep knowledge.', w: 'A3' },
+        { text: 'That I loved deeply, was loved in return, and felt life intensely.', w: 'A4' },
+        { text: 'That I lived fully, saw the world, and experienced true freedom.', w: 'A5' },
+        { text: 'That I expressed my true self and created things of original value.', w: 'A6' },
+        { text: 'That I made a meaningful difference in the lives of the people I cared for.', w: 'A7' },
+        { text: 'That I stayed 100% true to myself and never compromised my independence.', w: 'A8' }
+      ]},
+      { prompt: 'What would make you walk away from a relationship fastest?', options: [
+        { text: 'Disrespect, betrayal of trust, or undermining my position.', w: 'A1' },
+        { text: 'A partner who expects me to be weak, passive, or lack ambition.', w: 'A2' },
+        { text: 'Superficially minded drama, lack of deep communication, or constant noise.', w: 'A3' },
+        { text: 'Coldness, lack of affection, or emotional distance.', w: 'A4' },
+        { text: 'Jealousy, clinginess, or attempts to restrict my freedom.', w: 'A5' },
+        { text: 'A partner who tries to force me into a boring routine and stifles my ideas.', w: 'A6' },
+        { text: 'Being taken for granted, unappreciated, or made to feel unnecessary.', w: 'A7' },
+        { text: 'Attempts to control, tame, or force me to conform to expectations.', w: 'A8' }
+      ]}
+    ];
+
+    var ARCHETYPE_GUIDE_F = [
+      { type: 'Queen', need: 'Respect, dignity, partnership', fear: 'Humiliation, loss of value', love: 'When she is treated as an equal and her opinion and boundaries are respected.' },
+      { type: 'Lover / Muse', need: 'Passion, beauty, emotional closeness', fear: 'Indifference, loss of attractiveness', love: 'Admiration, attention, romance, being desired by her partner.' },
+      { type: 'Mother / Caregiver', need: 'To care for others, create safety', fear: 'Being unneeded', love: 'Gratitude, and the chance to care without feeling used.' },
+      { type: 'Maiden / Explorer', need: 'Freedom, growth, discovery', fear: 'Being limited', love: 'When her independence and curiosity are supported.' },
+      { type: 'Wise Woman', need: 'Understanding, depth, meaning', fear: 'Superficiality, her experience being ignored', love: 'Intellectual respect and genuine interest in her thoughts.' },
+      { type: 'Warrior', need: 'Independence, strength, achievement', fear: 'Helplessness', love: 'When her competence is recognized and no one tries to suppress her.' },
+      { type: 'Creator', need: 'Self-expression', fear: 'Routine, being unable to create', love: 'When her ideas inspire others and her uniqueness is valued.' },
+      { type: 'Wild Woman', need: 'Authenticity, emotional freedom', fear: 'Losing herself, living someone else\u2019s life', love: 'When she can be her true self nearby, without masks or judgment.' }
+    ];
+
+    var ARCHETYPE_INFO_F = {
+      W1: { name: 'The Queen', short: 'Respect, dignity, partnership', blurb: 'You carry yourself with quiet authority and expect to be met as an equal. Feeling disrespected or diminished cuts deep \u2014 what you need is a partner who honors your opinion and your boundaries without question.' },
+      W2: { name: 'The Lover / Muse', short: 'Passion, beauty, emotional closeness', blurb: 'You\u2019re wired for intensity \u2014 romance, beauty, feeling truly desired. Indifference is the real wound; what makes you feel alive is attention, admiration, and a partner who still chases you.' },
+      W3: { name: 'The Mother / Caregiver', short: 'Nurturing, creating safety', blurb: 'You build the warm, safe space everyone else gets to land in. Being taken for granted stings more than almost anything \u2014 what you need is gratitude, and care that flows both ways.' },
+      W4: { name: 'The Maiden / Explorer', short: 'Freedom, growth, discovery', blurb: 'You\u2019re happiest mid-adventure, always reaching for what\u2019s next. Feeling boxed in is your quiet fear; what you need is a partner who cheers on your curiosity instead of trying to contain it.' },
+      W5: { name: 'The Wise Woman', short: 'Depth, understanding, meaning', blurb: 'Surface-level doesn\u2019t hold your attention for long \u2014 you want real conversation and real understanding. Having your experience dismissed is painful; genuine intellectual respect is what makes you feel seen.' },
+      W6: { name: 'The Warrior', short: 'Independence, strength, achievement', blurb: 'You\u2019d rather handle it yourself than feel helpless. What you need most is for your competence to be recognized \u2014 not managed, not rescued, just respected.' },
+      W7: { name: 'The Creator', short: 'Self-expression', blurb: 'Routine flattens you fast \u2014 you need to be making something, always. When your ideas inspire someone and your originality is genuinely valued, that\u2019s when you feel most like yourself.' },
+      W8: { name: 'The Wild Woman', short: 'Authenticity, emotional freedom', blurb: 'Performing a version of yourself for other people\u2019s comfort wears you down. What you need is a space \u2014 and a person \u2014 where you can be completely unfiltered, without judgment.' }
+    };
+
+    var ARCHETYPE_QUESTIONS_F = [
+      { prompt: 'What drives you most deeply in life right now?', options: [
+        { text: 'Maintaining my self-respect, building an equal partnership, and commanding my space.', w: 'W1' },
+        { text: 'Experiencing deep passion, romantic connection, and living in sensory beauty.', w: 'W2' },
+        { text: 'Nurturing my loved ones and creating a safe, cozy environment for them to thrive.', w: 'W3' },
+        { text: 'Discovering new paths, growing continuously, and exploring life without limits.', w: 'W4' },
+        { text: 'Seeking truth, understanding life\u2019s deeper meaning, and expanding my knowledge.', w: 'W5' },
+        { text: 'Achieving my goals, proving my strength, and staying completely self-reliant.', w: 'W6' },
+        { text: 'Expressing my inner vision through original ideas, art, or creative projects.', w: 'W7' },
+        { text: 'Living with total emotional freedom and remaining raw, real, and uninhibited.', w: 'W8' }
+      ]},
+      { prompt: 'Which scenario causes you the most internal distress or pain?', options: [
+        { text: 'Being humiliated, disrespected, or having my boundaries crossed.', w: 'W1' },
+        { text: 'Facing emotional indifference, feeling unappealing, or losing romance.', w: 'W2' },
+        { text: 'Finding out that my care isn\u2019t needed or that I\u2019m being taken for granted.', w: 'W3' },
+        { text: 'Feeling trapped, stifled, or forced into a small, restricted life.', w: 'W4' },
+        { text: 'Being surrounded by superficial noise and having my experience ignored.', w: 'W5' },
+        { text: 'Feeling helpless, weak, or dependent on someone else to save me.', w: 'W6' },
+        { text: 'Falling into a grey, repetitive routine where my imagination dies.', w: 'W7' },
+        { text: 'Losing my true self, living a fake life, or wearing a mask to please society.', w: 'W8' }
+      ]},
+      { prompt: 'You feel most deeply cherished in a romantic relationship when your partner\u2026', options: [
+        { text: 'Treats me as an equal, respects my opinion, and honors my boundaries.', w: 'W1' },
+        { text: 'Admires me, showers me with romantic attention, and desires me deeply.', w: 'W2' },
+        { text: 'Receives my care with sincere gratitude and makes me feel valued.', w: 'W3' },
+        { text: 'Supports my independence and encourages my personal curiosity.', w: 'W4' },
+        { text: 'Shows genuine interest in my thoughts and engages in deep conversations.', w: 'W5' },
+        { text: 'Recognizes my competence and strength without trying to dominate me.', w: 'W6' },
+        { text: 'Is inspired by my original ideas and appreciates my creative spirit.', w: 'W7' },
+        { text: 'Accepts me completely as I am \u2014 raw, untamed, and without judgment.', w: 'W8' }
+      ]},
+      { prompt: 'When a major argument or disagreement breaks out, how do you respond?', options: [
+        { text: 'I step back with composure, set clear boundaries, and demand respect.', w: 'W1' },
+        { text: 'I express my emotions intensely to restore intimacy and closeness quickly.', w: 'W2' },
+        { text: 'I try to soften the tension, protect everyone\u2019s feelings, and bring peace.', w: 'W3' },
+        { text: 'I look for new perspectives or give myself space to clear my mind.', w: 'W4' },
+        { text: 'I analyze the root cause calmly and draw on past experience to resolve it.', w: 'W5' },
+        { text: 'I stand my ground firmly, state my points directly, and fight back.', w: 'W6' },
+        { text: 'I look for an imaginative, unconventional way to transform the situation.', w: 'W7' },
+        { text: 'I speak my raw, uncensored truth without sugarcoating anything.', w: 'W8' }
+      ]},
+      { prompt: 'How do you most enjoy spending your personal downtime?', options: [
+        { text: 'Curating an elegant environment, hosting an intimate gathering, or managing long-term plans.', w: 'W1' },
+        { text: 'Getting dressed up, going on a romantic date, or indulging in self-care and beauty rituals.', w: 'W2' },
+        { text: 'Cooking, taking care of home, or spending quality time comforting loved ones.', w: 'W3' },
+        { text: 'Booking a spontaneous trip, learning a new skill, or trying an unfamiliar activity.', w: 'W4' },
+        { text: 'Reading a profound book, journaling, or contemplating complex life topics.', w: 'W5' },
+        { text: 'Hitting a tough physical workout, tackling a complex challenge, or mastering a hard skill.', w: 'W6' },
+        { text: 'Painting, writing, designing, or making something completely new.', w: 'W7' },
+        { text: 'Spending time alone in nature, dancing, or doing whatever feels instinct-driven.', w: 'W8' }
+      ]},
+      { prompt: 'What is your natural role when collaborating with others?', options: [
+        { text: 'The Leader: setting the standard, delegating tasks, maintaining dignity and order.', w: 'W1' },
+        { text: 'The Inspirer: bringing energy, passion, and emotional heart to the group.', w: 'W2' },
+        { text: 'The Provider: ensuring everyone feels comfortable, safe, and looked after.', w: 'W3' },
+        { text: 'The Catalyst: bringing fresh energy, asking questions, and seeking new approaches.', w: 'W4' },
+        { text: 'The Advisor: providing deep insights, objective perspective, and wisdom.', w: 'W5' },
+        { text: 'The Defender: pushing execution forward, tackling hard tasks, and protecting the goal.', w: 'W6' },
+        { text: 'The Visionary: designing the concept, branding, and creative direction.', w: 'W7' },
+        { text: 'The Truth-Teller: stripping away pretenses, exposing flaws, and keeping it real.', w: 'W8' }
+      ]},
+      { prompt: 'What would make you leave a partner or close friend fastest?', options: [
+        { text: 'Condescension, disrespect, or treating me like a subordinate.', w: 'W1' },
+        { text: 'Coldness, lack of affection, or living like roommates without passion.', w: 'W2' },
+        { text: 'Taking my generosity for granted or using me as a free servant.', w: 'W3' },
+        { text: 'Possessiveness, clinginess, or trying to restrict my personal freedom.', w: 'W4' },
+        { text: 'Shallow small talk, mind games, or ignoring my experience.', w: 'W5' },
+        { text: 'Attempts to undermine my independence or make me feel weak.', w: 'W6' },
+        { text: 'Trying to force me into a rigid, conventional mold that kills my creativity.', w: 'W7' },
+        { text: 'Expecting me to alter my personality, act "proper," or hide my true nature.', w: 'W8' }
+      ]},
+      { prompt: 'How do you navigate major transitions or challenges in your life?', options: [
+        { text: 'I maintain my self-control, formulate a strategic plan, and hold my head high.', w: 'W1' },
+        { text: 'I lean into my intuition, feelings, and the support of deep emotional bonds.', w: 'W2' },
+        { text: 'I focus on keeping things stable and protecting the well-being of those around me.', w: 'W3' },
+        { text: 'I view it as an exciting new adventure and a chance to evolve.', w: 'W4' },
+        { text: 'I step back to gain perspective, searching for the lesson behind the challenge.', w: 'W5' },
+        { text: 'I brace myself, take charge of the problem, and push through with sheer force.', w: 'W6' },
+        { text: 'I channel the turbulence into art, projects, or creative self-expression.', w: 'W7' },
+        { text: 'I trust my wild instincts, strip away what no longer serves me, and start fresh.', w: 'W8' }
+      ]},
+      { prompt: 'Which environment or atmosphere makes you feel most in your element?', options: [
+        { text: 'An elegant, well-ordered space where everything reflects refinement and standards.', w: 'W1' },
+        { text: 'A romantic, beautifully lit space filled with art, music, and sensual textures.', w: 'W2' },
+        { text: 'A warm, welcoming home filled with comfort, soft light, and good food.', w: 'W3' },
+        { text: 'An open road, a bustling airport, or a vibrant place full of new possibilities.', w: 'W4' },
+        { text: 'A quiet library, cozy study, or tranquil space surrounded by books and nature.', w: 'W5' },
+        { text: 'A crisp, functional setting focused on action, strength, and clear goals.', w: 'W6' },
+        { text: 'A studio or workshop overflowing with materials, mood boards, and projects in progress.', w: 'W7' },
+        { text: 'Raw nature \u2014 the ocean, forests, firelight, or anywhere far from social expectations.', w: 'W8' }
+      ]},
+      { prompt: 'When you reflect on your life, what do you want to be remembered for?', options: [
+        { text: 'Carrying myself with grace, establishing high standards, and leaving a proud legacy.', w: 'W1' },
+        { text: 'Loving intensely, inspiring others, and filling the world with beauty and emotion.', w: 'W2' },
+        { text: 'Being a pillar of warmth, safety, and unconditional care for my family and friends.', w: 'W3' },
+        { text: 'Living a rich life of freedom, continuous growth, and bold exploration.', w: 'W4' },
+        { text: 'Offering wisdom, deep understanding, and meaningful clarity to those in search of it.', w: 'W5' },
+        { text: 'Fighting for what is right, conquering obstacles, and standing strong.', w: 'W6' },
+        { text: 'Creating unique, original work that expressed my soul and outlasts me.', w: 'W7' },
+        { text: 'Living completely authentically, true to my wild spirit, without a single compromise.', w: 'W8' }
+      ]}
+    ];
 
     var TESTS = [
       {
         key: 'corewound',
         tagline: 'Which Pattern Shows Up for You',
         goal: 'A 10-question reflection on the patterns behind how you react.',
-        questions: QUIZ_QUESTIONS
+        questions: QUIZ_QUESTIONS,
+        resultInfo: WOUND_INFO,
+        baselineKey: 'W0',
+        secondaryThreshold: 50,
+        guideLabel: 'Trauma',
+        guideColumns: ['Personality type', 'Core belief', 'Likely underlying wound', 'What typically triggers the wound'],
+        guideRows: WOUND_GUIDE.map(function(r){ return [r.type, r.belief, r.wound, r.trigger]; }),
+        guideQuoteCol: 1
+      },
+      {
+        key: 'archetype',
+        tagline: 'Which Man Are You',
+        goal: 'A 10-question look at which classic archetype drives you.',
+        questions: ARCHETYPE_QUESTIONS,
+        resultInfo: ARCHETYPE_INFO,
+        baselineKey: null,
+        secondaryThreshold: 60,
+        guideLabel: 'Men',
+        guideColumns: ['Archetype', 'Main need', 'Main fear', 'What makes him feel loved'],
+        guideRows: ARCHETYPE_GUIDE.map(function(r){ return [r.type, r.need, r.fear, r.love]; }),
+        guideQuoteCol: null
+      },
+      {
+        key: 'archetype_f',
+        tagline: 'Which Woman Are You',
+        goal: 'A 10-question look at which classic archetype drives you.',
+        questions: ARCHETYPE_QUESTIONS_F,
+        resultInfo: ARCHETYPE_INFO_F,
+        baselineKey: null,
+        secondaryThreshold: 60,
+        guideLabel: 'Women',
+        guideColumns: ['Archetype', 'Main need', 'Main fear', 'What helps her feel loved'],
+        guideRows: ARCHETYPE_GUIDE_F.map(function(r){ return [r.type, r.need, r.fear, r.love]; }),
+        guideQuoteCol: null
       }
     ];
 
-    var testGrid = document.getElementById('testGrid');
+    var testsList = document.getElementById('testsList');
     var quizView = document.getElementById('quizView');
     var quizResultView = document.getElementById('quizResultView');
     var quizProgress = document.getElementById('quizProgress');
@@ -786,24 +1039,73 @@
     var quizBackBtn = document.getElementById('quizBackBtn');
 
     var activeTest = null;
+    var activeCardGrid = null;
     var qIndex = 0;
     var scores = {};
 
-    TESTS.forEach(function(test, i){
-      var btn = document.createElement('button');
-      btn.className = 'cat-card';
-      btn.innerHTML = '<span class="tag">' + test.tagline + '</span><span class="goal">' + test.goal + '</span>';
-      btn.addEventListener('click', function(){
+    TESTS.forEach(function(test){
+      var block = document.createElement('div');
+      block.className = 'test-block';
+
+      var row = document.createElement('div');
+      row.className = 'test-row';
+
+      var cardGrid = document.createElement('div');
+      cardGrid.className = 'cat-grid';
+      cardGrid.style.gridTemplateColumns = '1fr';
+      var card = document.createElement('button');
+      card.className = 'cat-card';
+      card.innerHTML = '<span class="tag">' + test.tagline + '</span><span class="goal">' + test.goal + '</span>';
+      card.addEventListener('click', function(){
         activeTest = test;
+        activeCardGrid = cardGrid;
         startQuiz();
       });
-      testGrid.appendChild(btn);
+      cardGrid.appendChild(card);
+      row.appendChild(cardGrid);
+
+      var guideBtn = document.createElement('button');
+      guideBtn.className = 'guide-btn';
+      guideBtn.innerHTML = test.guideLabel + '<br>Guide';
+      row.appendChild(guideBtn);
+
+      block.appendChild(row);
+
+      var panel = document.createElement('div');
+      panel.className = 'wound-guide-panel hidden';
+      block.appendChild(panel);
+
+      var guideBuilt = false;
+      guideBtn.addEventListener('click', function(){
+        if (!guideBuilt){
+          var html = '<div class="wg-scroll"><div class="wg-grid">';
+          test.guideColumns.forEach(function(h, ci){
+            html += '<div class="wg-cell wg-head' + (ci === 0 ? ' wg-sticky' : '') + '">' + h + '</div>';
+          });
+          test.guideRows.forEach(function(cells, ri){
+            var alt = (ri % 2 === 1) ? ' wg-alt' : '';
+            cells.forEach(function(val, ci){
+              var stickyClass = ci === 0 ? ' wg-sticky' : '';
+              var content = (test.guideQuoteCol === ci) ? '<span class="wg-belief-text">' + val + '</span>' : val;
+              html += '<div class="wg-cell' + alt + stickyClass + '">' + content + '</div>';
+            });
+          });
+          html += '</div></div>';
+          panel.innerHTML = html;
+          guideBuilt = true;
+        }
+        var isHidden = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden');
+        guideBtn.innerHTML = isHidden ? ('Hide<br>' + test.guideLabel + '<br>Guide') : (test.guideLabel + '<br>Guide');
+      });
+
+      testsList.appendChild(block);
     });
 
     function startQuiz(){
       qIndex = 0;
       scores = {};
-      testGrid.classList.add('hidden');
+      testsList.classList.add('hidden');
       quizResultView.classList.add('hidden');
       quizView.classList.remove('hidden');
       renderQuestion();
@@ -833,43 +1135,43 @@
     }
 
     function showResult(){
-      // max possible score per wound = how many questions offer that wound as an option
-      var maxByWound = {};
+      // max possible score per key = how many questions offer that option
+      var maxByKey = {};
       activeTest.questions.forEach(function(q){
         q.options.forEach(function(opt){
-          maxByWound[opt.w] = (maxByWound[opt.w] || 0) + 1;
+          maxByKey[opt.w] = (maxByKey[opt.w] || 0) + 1;
         });
       });
 
-      var woundIds = Object.keys(maxByWound).filter(function(id){ return id !== 'W0'; });
-      var intensities = woundIds.map(function(id){
+      var keys = Object.keys(maxByKey).filter(function(id){ return id !== activeTest.baselineKey; });
+      var intensities = keys.map(function(id){
         var raw = scores[id] || 0;
-        var max = maxByWound[id] || 1;
+        var max = maxByKey[id] || 1;
         return { id: id, pct: Math.round((raw / max) * 100) };
       }).sort(function(a, b){ return b.pct - a.pct; });
 
       var top = intensities[0];
       var second = intensities[1];
-      var allLow = intensities.every(function(x){ return x.pct < 30; });
+      var allLow = activeTest.baselineKey && intensities.every(function(x){ return x.pct < 30; });
 
       quizView.classList.add('hidden');
       quizResultView.classList.remove('hidden');
 
       var html = '';
-      if (allLow || !top || top.pct === 0){
-        var conf = WOUND_INFO.W0;
+      if (activeTest.baselineKey && (allLow || !top || top.pct === 0)){
+        var conf = activeTest.resultInfo[activeTest.baselineKey];
         html += '<div class="quiz-result-name">' + conf.name + '</div>';
         html += '<div class="quiz-result-sub">Low Vulnerability &middot; Dominant Resilience</div>';
         html += '<div class="quiz-result-blurb">' + conf.blurb + '</div>';
       } else {
-        var primary = WOUND_INFO[top.id];
+        var primary = activeTest.resultInfo[top.id];
         html += '<div class="quiz-result-name">' + primary.name + '</div>';
         html += '<div class="quiz-result-sub">' + primary.short + ' &middot; ' + top.pct + '%</div>';
         html += '<div class="quiz-result-blurb">' + primary.blurb + '</div>';
 
-        if (second && second.pct >= 50){
-          var sec = WOUND_INFO[second.id];
-          html += '<div class="quiz-secondary">Also showing up: <b>' + sec.name + '</b> (' + sec.short + ', ' + second.pct + '%) — ' + sec.blurb + '</div>';
+        if (second && second.pct >= activeTest.secondaryThreshold){
+          var sec = activeTest.resultInfo[second.id];
+          html += '<div class="quiz-secondary">Also showing up: <b>' + sec.name + '</b> (' + sec.short + ', ' + second.pct + '%) \u2014 ' + sec.blurb + '</div>';
         }
       }
       quizResultCard.innerHTML = html;
@@ -881,7 +1183,7 @@
     quizRetakeBtn.addEventListener('click', startQuiz);
     quizBackBtn.addEventListener('click', function(){
       quizResultView.classList.add('hidden');
-      testGrid.classList.remove('hidden');
+      testsList.classList.remove('hidden');
     });
   })();
 
