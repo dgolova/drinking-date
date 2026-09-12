@@ -176,6 +176,74 @@
   }
 
   .hidden{ display:none !important; }
+
+  /* ---------- Tests (quiz) ---------- */
+  .quiz-progress{
+    text-align:center;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.92rem;
+    margin-bottom: 16px;
+  }
+  .quiz-prompt{
+    font-family:'Cormorant Garamond', serif;
+    font-size: 1.35rem;
+    line-height:1.35;
+    text-align:center;
+    color: var(--parchment);
+    margin-bottom: 20px;
+  }
+  .quiz-options{
+    display:flex;
+    flex-direction:column;
+    gap: 10px;
+  }
+  .quiz-option{
+    background: linear-gradient(180deg, rgba(59,13,20,0.5), rgba(26,14,20,0.5));
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 14px 16px;
+    text-align:left;
+    color: var(--parchment);
+    font-family:'EB Garamond', serif;
+    font-size: 1.02rem;
+    line-height:1.35;
+    cursor:pointer;
+  }
+  .quiz-option:active{ border-color: var(--red-hairline); background: rgba(231,90,99,0.1); }
+  .quiz-result-name{
+    font-family:'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    color: var(--gold-bright, #f2ece2);
+    margin-bottom: 6px;
+  }
+  .quiz-result-sub{
+    font-style: italic;
+    color: var(--red-bright);
+    font-size: 0.98rem;
+    margin-bottom: 14px;
+  }
+  .quiz-result-blurb{
+    font-size: 1.05rem;
+    line-height:1.45;
+    color: var(--parchment);
+  }
+  .quiz-secondary{
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hairline);
+    font-size: 0.95rem;
+    color: var(--muted);
+    line-height:1.4;
+  }
+  .quiz-secondary b{ color: var(--parchment); font-weight:600; }
+  .quiz-disclaimer{
+    text-align:center;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.85rem;
+    margin-top: 16px;
+  }
 </style>
 </head>
 <body>
@@ -215,6 +283,28 @@
       <div class="btn-row">
         <button class="action-btn" id="bachDrawAnotherBtn">Draw Another</button>
         <button class="action-btn secondary" id="bachChangeCatBtn">Change Category</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TESTS ============ -->
+  <section class="section">
+    <h2 class="section-title">Tests</h2>
+
+    <div class="cat-grid" id="testGrid" style="grid-template-columns: 1fr;"></div>
+
+    <div id="quizView" class="hidden">
+      <div class="quiz-progress" id="quizProgress"></div>
+      <div class="quiz-prompt" id="quizPrompt"></div>
+      <div class="quiz-options" id="quizOptions"></div>
+    </div>
+
+    <div id="quizResultView" class="hidden">
+      <div class="result-card flip-anim" id="quizResultCard"></div>
+      <p class="quiz-disclaimer">Just for reflection and conversation — not a clinical assessment.</p>
+      <div class="btn-row">
+        <button class="action-btn" id="quizRetakeBtn">Retake</button>
+        <button class="action-btn secondary" id="quizBackBtn">Back to Tests</button>
       </div>
     </div>
   </section>
@@ -383,6 +473,114 @@
     }
   ];
 
+  // ---------- Tests: "Core Patterns" quiz ----------
+  var WOUND_INFO = {
+    W1: { name: 'The Caregiver', short: 'Emotional Neglect', blurb: 'You feel most valued when you\u2019re needed. When no one asks for your help, it can quietly feel like you\u2019ve become invisible to them.' },
+    W2: { name: 'The Controller', short: 'Fear of Losing Control', blurb: 'Uncertainty is the hard part. When plans shift without warning, your instinct is to grab the wheel and put things back in order.' },
+    W3: { name: 'The Independent One', short: 'Rejection (Distance)', blurb: 'Relying on people has felt risky before, so you keep a layer of self-sufficiency between you and getting hurt.' },
+    W4: { name: 'The Romantic', short: 'Abandonment', blurb: 'Silence or distance reads as a warning sign. Part of you is always listening for the moment someone starts to pull away.' },
+    W5: { name: 'The Perfectionist', short: 'Shame', blurb: 'Mistakes don\u2019t feel small — they feel like evidence. You hold yourself to a standard where "good enough" rarely feels safe.' },
+    W6: { name: 'The People-Pleaser', short: 'Guilt', blurb: 'When something goes wrong nearby, your first move is to check whether it was your fault — even before the facts are in.' },
+    W7: { name: 'The Skeptic', short: 'Betrayal', blurb: 'Trust has to be earned slowly. You\u2019re quick to notice inconsistencies, because being blindsided once was enough.' },
+    W8: { name: 'The Justice Seeker', short: 'Systemic Injustice', blurb: 'Unfairness gets under your skin fast, especially double standards. You feel compelled to speak up when something is out of balance.' },
+    W9: { name: 'The Conflict-Avoidant', short: 'Rejection (Authenticity)', blurb: 'Showing your real, unpolished opinions feels exposing, so it\u2019s often easier to agree and keep the peace.' },
+    W0: { name: 'The Confident Leader', short: 'Low Vulnerability', blurb: 'Setbacks don\u2019t rattle you for long. You process things, adjust, and keep moving without much residue.' }
+  };
+
+  var QUIZ_QUESTIONS = [
+    {
+      prompt: 'A close friend or partner suddenly cancels weekend plans last minute with no clear explanation. What\u2019s your immediate internal reaction?',
+      options: [
+        { text: 'I panic that they are pulling away or losing interest in me.', w: 'W4' },
+        { text: 'I feel frustrated because my schedule is disrupted and things are out of order.', w: 'W2' },
+        { text: 'I immediately wonder if they are hiding something or being dishonest with me.', w: 'W7' },
+        { text: 'I worry that I did something wrong or upset them to make them cancel.', w: 'W6' },
+        { text: 'I take it in stride, adjust my day smoothly, and move on.', w: 'W0' }
+      ]
+    },
+    {
+      prompt: 'Someone publicly points out a mistake you made on a project or task. How do you feel?',
+      options: [
+        { text: 'Deeply ashamed — like my effort meant nothing because it wasn\u2019t flawless.', w: 'W5' },
+        { text: 'Uncomfortable — I\u2019d rather hide my true feelings than risk being judged.', w: 'W9' },
+        { text: 'Angry — it feels deeply unfair, especially if others aren\u2019t held to the same standard.', w: 'W8' },
+        { text: 'Indifferent — I prefer to rely only on myself anyway, so their opinion doesn\u2019t change much.', w: 'W3' },
+        { text: 'Objective — I check if the feedback is useful and fix the mistake without taking it personally.', w: 'W0' }
+      ]
+    },
+    {
+      prompt: 'People around you handle a major crisis completely fine without asking for your help. How does that sit with you?',
+      options: [
+        { text: 'Unneeded or forgotten, as if my value to them disappears when I\u2019m not helping.', w: 'W1' },
+        { text: 'Relieved that things are handled smoothly, and confident in the outcome.', w: 'W0' },
+        { text: 'Suspicious about why they kept me out of the loop or didn\u2019t share information.', w: 'W7' },
+        { text: 'Anxious that I should have offered help sooner and disappointed them.', w: 'W6' }
+      ]
+    },
+    {
+      prompt: 'Your partner or close friend goes silent and takes hours to reply to a text while out. What goes through your mind?',
+      options: [
+        { text: 'They are abandoning me or distancing themselves.', w: 'W4' },
+        { text: 'They are lying or doing something secret behind my back.', w: 'W7' },
+        { text: 'I should step back too — it\u2019s safer to keep my distance so I don\u2019t get hurt.', w: 'W3' },
+        { text: 'They\u2019re probably busy; I\u2019ll catch up with them later.', w: 'W0' }
+      ]
+    },
+    {
+      prompt: 'A disagreement arises in a group setting. What\u2019s your natural tendency?',
+      options: [
+        { text: 'I step in to manage the situation so it doesn\u2019t spiral into chaos.', w: 'W2' },
+        { text: 'I hide my real opinions and agree with others to avoid conflict or rejection.', w: 'W9' },
+        { text: 'I jump in to make sure everyone is treated fairly and double standards aren\u2019t applied.', w: 'W8' },
+        { text: 'I state my position clearly and work constructively toward a resolution.', w: 'W0' }
+      ]
+    },
+    {
+      prompt: 'Someone tells you, "I\u2019m really disappointed in how things turned out." How do you react?',
+      options: [
+        { text: 'I automatically take full responsibility and feel immense guilt for letting them down.', w: 'W6' },
+        { text: 'I immediately jump into problem-solving mode to make myself useful and fix it.', w: 'W1' },
+        { text: 'I feel defensive because I worked hard to do it perfectly.', w: 'W5' },
+        { text: 'I assess whether the disappointment is grounded in reality before accepting responsibility.', w: 'W0' }
+      ]
+    },
+    {
+      prompt: 'When someone tries to get very close to you emotionally, what\u2019s your default defense mechanism?',
+      options: [
+        { text: 'I pull away or build a wall; it\u2019s safer not to rely on anyone.', w: 'W3' },
+        { text: 'I feel anxious that once they really know me, they\u2019ll eventually leave.', w: 'W4' },
+        { text: 'I worry that if I show my true, imperfect self, they\u2019ll reject or ridicule me.', w: 'W9' },
+        { text: 'I welcome meaningful connection while maintaining healthy personal boundaries.', w: 'W0' }
+      ]
+    },
+    {
+      prompt: 'What scenario triggers you the most in a team environment?',
+      options: [
+        { text: 'People changing agreed-upon plans without telling me, creating disorder.', w: 'W2' },
+        { text: 'Favoritism, unearned privileges, or baseless accusations against someone.', w: 'W8' },
+        { text: 'Having my contributions ignored while minor flaws are singled out.', w: 'W5' },
+        { text: 'Colleagues being ungrateful or acting like my effort isn\u2019t necessary.', w: 'W1' }
+      ]
+    },
+    {
+      prompt: 'When meeting new people or entering a new relationship, what\u2019s your underlying assumption?',
+      options: [
+        { text: 'I need to be careful — people usually hide things or break promises.', w: 'W7' },
+        { text: 'I need to make myself useful so they have a reason to keep me around.', w: 'W1' },
+        { text: 'I need to make sure I don\u2019t make mistakes so I stay blameless.', w: 'W5' },
+        { text: 'I accept people as they are until they give me a reason not to.', w: 'W0' }
+      ]
+    },
+    {
+      prompt: 'When you feel overwhelmed by personal problems, how do you handle it?',
+      options: [
+        { text: 'I keep it entirely to myself because letting people in usually leads to getting hurt.', w: 'W3' },
+        { text: 'I hide it behind a smile so I don\u2019t burden or upset anyone else.', w: 'W6' },
+        { text: 'I try to organize and control every external detail around me to manage internal stress.', w: 'W2' },
+        { text: 'I process my emotions, seek support if needed, and take action.', w: 'W0' }
+      ]
+    }
+  ];
   // ---------- spinner (purely for fun, no category link) ----------
   var bottle = document.getElementById('bottlePin');
   var currentRotation = 0;
@@ -458,6 +656,127 @@
 
   setupQuestionSection('catGrid', 'cardView', 'resultSlot', 'drawAnotherBtn', 'changeCatBtn', CATEGORIES);
   setupQuestionSection('bachCatGrid', 'bachCardView', 'bachResultSlot', 'bachDrawAnotherBtn', 'bachChangeCatBtn', CATEGORIES_BACH);
+
+  // ---------- Tests: quiz engine ----------
+  (function setupTests(){
+    var TESTS = [
+      {
+        key: 'corewound',
+        tagline: 'Which Pattern Shows Up for You',
+        goal: 'A 10-question reflection on the patterns behind how you react.',
+        questions: QUIZ_QUESTIONS
+      }
+    ];
+
+    var testGrid = document.getElementById('testGrid');
+    var quizView = document.getElementById('quizView');
+    var quizResultView = document.getElementById('quizResultView');
+    var quizProgress = document.getElementById('quizProgress');
+    var quizPrompt = document.getElementById('quizPrompt');
+    var quizOptions = document.getElementById('quizOptions');
+    var quizResultCard = document.getElementById('quizResultCard');
+    var quizRetakeBtn = document.getElementById('quizRetakeBtn');
+    var quizBackBtn = document.getElementById('quizBackBtn');
+
+    var activeTest = null;
+    var qIndex = 0;
+    var scores = {};
+
+    TESTS.forEach(function(test, i){
+      var btn = document.createElement('button');
+      btn.className = 'cat-card';
+      btn.innerHTML = '<span class="tag">' + test.tagline + '</span><span class="goal">' + test.goal + '</span>';
+      btn.addEventListener('click', function(){
+        activeTest = test;
+        startQuiz();
+      });
+      testGrid.appendChild(btn);
+    });
+
+    function startQuiz(){
+      qIndex = 0;
+      scores = {};
+      testGrid.classList.add('hidden');
+      quizResultView.classList.add('hidden');
+      quizView.classList.remove('hidden');
+      renderQuestion();
+    }
+
+    function renderQuestion(){
+      var total = activeTest.questions.length;
+      var q = activeTest.questions[qIndex];
+      quizProgress.textContent = 'Question ' + (qIndex + 1) + ' of ' + total;
+      quizPrompt.textContent = q.prompt;
+      quizOptions.innerHTML = '';
+      q.options.forEach(function(opt){
+        var b = document.createElement('button');
+        b.className = 'quiz-option';
+        b.textContent = opt.text;
+        b.addEventListener('click', function(){
+          scores[opt.w] = (scores[opt.w] || 0) + 1;
+          qIndex++;
+          if (qIndex < total){
+            renderQuestion();
+          } else {
+            showResult();
+          }
+        });
+        quizOptions.appendChild(b);
+      });
+    }
+
+    function showResult(){
+      // max possible score per wound = how many questions offer that wound as an option
+      var maxByWound = {};
+      activeTest.questions.forEach(function(q){
+        q.options.forEach(function(opt){
+          maxByWound[opt.w] = (maxByWound[opt.w] || 0) + 1;
+        });
+      });
+
+      var woundIds = Object.keys(maxByWound).filter(function(id){ return id !== 'W0'; });
+      var intensities = woundIds.map(function(id){
+        var raw = scores[id] || 0;
+        var max = maxByWound[id] || 1;
+        return { id: id, pct: Math.round((raw / max) * 100) };
+      }).sort(function(a, b){ return b.pct - a.pct; });
+
+      var top = intensities[0];
+      var second = intensities[1];
+      var allLow = intensities.every(function(x){ return x.pct < 30; });
+
+      quizView.classList.add('hidden');
+      quizResultView.classList.remove('hidden');
+
+      var html = '';
+      if (allLow || !top || top.pct === 0){
+        var conf = WOUND_INFO.W0;
+        html += '<div class="quiz-result-name">' + conf.name + '</div>';
+        html += '<div class="quiz-result-sub">Low Vulnerability &middot; Dominant Resilience</div>';
+        html += '<div class="quiz-result-blurb">' + conf.blurb + '</div>';
+      } else {
+        var primary = WOUND_INFO[top.id];
+        html += '<div class="quiz-result-name">' + primary.name + '</div>';
+        html += '<div class="quiz-result-sub">' + primary.short + ' &middot; ' + top.pct + '%</div>';
+        html += '<div class="quiz-result-blurb">' + primary.blurb + '</div>';
+
+        if (second && second.pct >= 50){
+          var sec = WOUND_INFO[second.id];
+          html += '<div class="quiz-secondary">Also showing up: <b>' + sec.name + '</b> (' + sec.short + ', ' + second.pct + '%) — ' + sec.blurb + '</div>';
+        }
+      }
+      quizResultCard.innerHTML = html;
+      quizResultCard.classList.remove('flip-anim');
+      void quizResultCard.offsetWidth;
+      quizResultCard.classList.add('flip-anim');
+    }
+
+    quizRetakeBtn.addEventListener('click', startQuiz);
+    quizBackBtn.addEventListener('click', function(){
+      quizResultView.classList.add('hidden');
+      testGrid.classList.remove('hidden');
+    });
+  })();
 
 })();
 </script>
