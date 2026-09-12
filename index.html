@@ -244,8 +244,71 @@
     font-size: 0.85rem;
     margin-top: 16px;
   }
+
+  /* ---------- Wound guide (reference table) ---------- */
+  .test-row{ display:flex; align-items:stretch; gap: 10px; margin-bottom: 20px; }
+  .test-row .cat-grid{ flex:1; margin-bottom:0; }
+  .guide-btn{
+    flex: 0 0 auto;
+    align-self:center;
+    font-family:'Cormorant Garamond', serif;
+    font-size: 0.98rem;
+    line-height: 1.15;
+    letter-spacing: 0.02em;
+    color: var(--red-bright);
+    background:none;
+    border: 1px solid var(--red-hairline);
+    padding: 10px 16px;
+    border-radius: 18px;
+    cursor:pointer;
+    text-align:center;
+  }
+  .guide-btn:active{ background: rgba(231,90,99,0.1); }
+  .wound-guide-panel{
+    margin-bottom: 22px;
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .wg-scroll{
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .wg-grid{
+    display: grid;
+    grid-template-columns: 130px 170px 150px 220px;
+    min-width: 670px;
+  }
+  .wg-cell{
+    padding: 12px 14px;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    border-bottom: 1px solid var(--hairline);
+    border-right: 1px solid var(--hairline);
+    background: rgba(26,14,20,0.35);
+  }
+  .wg-grid .wg-cell:nth-child(4n){ border-right:none; }
+  .wg-cell.wg-alt{ background: rgba(59,13,20,0.4); }
+  .wg-cell.wg-head{
+    background: var(--wine-deep);
+    font-family:'Cormorant Garamond', serif;
+    font-size: 0.95rem;
+    color: var(--gold-bright, #f2ece2);
+    letter-spacing: 0.01em;
+  }
+  .wg-cell.wg-sticky{
+    position: sticky;
+    left: 0;
+    font-family:'Cormorant Garamond', serif;
+    font-size: 1rem;
+    color: var(--gold-bright, #f2ece2);
+    background: #1f1015;
+  }
+  .wg-cell.wg-sticky.wg-alt{ background: #2a1219; }
+  .wg-cell .wg-belief-text{ color: var(--red-bright); font-style: italic; }
 </style>
 </head>
+
 <body>
 
 <div class="page">
@@ -291,7 +354,11 @@
   <section class="section">
     <h2 class="section-title">Tests</h2>
 
-    <div class="cat-grid" id="testGrid" style="grid-template-columns: 1fr;"></div>
+    <div class="test-row">
+      <div class="cat-grid" id="testGrid" style="grid-template-columns: 1fr;"></div>
+      <button class="guide-btn" id="woundGuideBtn">Trauma<br>Guide</button>
+    </div>
+    <div class="wound-guide-panel hidden" id="woundGuidePanel"></div>
 
     <div id="quizView" class="hidden">
       <div class="quiz-progress" id="quizProgress"></div>
@@ -659,6 +726,46 @@
 
   // ---------- Tests: quiz engine ----------
   (function setupTests(){
+    var WOUND_GUIDE = [
+      { type: 'Empath, caregiver, rescuer', belief: '\u201cI\u2019m valued only if I\u2019m useful.\u201d', wound: 'Feeling unneeded / emotional neglect', trigger: 'Not expressing gratitude, not needing their help, excluding them from important matters, showing that everything works fine without them.' },
+      { type: 'Controller, organizer', belief: '\u201cIf I\u2019m not in control, something bad will happen.\u201d', wound: 'Anxiety, fear of losing control', trigger: 'Being unpredictable, changing plans at the last minute, withholding information, breaking agreements, creating chaos.' },
+      { type: 'Highly independent person', belief: '\u201cIt\u2019s better to keep my distance than to be hurt again.\u201d', wound: 'Rejection', trigger: 'Pushing them away, criticizing who they are, rejecting attempts to get closer, showing a lack of acceptance.' },
+      { type: 'Anxiously attached, highly romantic', belief: '\u201cPeople I love will eventually leave me.\u201d', wound: 'Abandonment', trigger: 'Taking a long time to reply, becoming emotionally distant, canceling plans, saying \u201cI need space.\u201d' },
+      { type: 'Perfectionist', belief: '\u201cI have to be perfect.\u201d', wound: 'Shame, injustice', trigger: 'Criticizing mistakes, comparing them to others, pointing out flaws, dismissing or minimizing their achievements.' },
+      { type: 'People-pleaser', belief: '\u201cI\u2019m responsible for other people\u2019s feelings.\u201d', wound: 'Guilt', trigger: 'Saying \u201cYou upset me,\u201d expressing deep disappointment, blaming them, making them feel they\u2019ve let you down.' },
+      { type: 'Jealous, suspicious person', belief: '\u201cPeople can\u2019t be trusted.\u201d', wound: 'Betrayal', trigger: 'Lying, hiding information, breaking promises, flirting with others, being secretive.' },
+      { type: 'Justice seeker', belief: '\u201cEverything should be fair.\u201d', wound: 'Injustice', trigger: 'Double standards, baseless accusations, favoritism, unfair decisions.' },
+      { type: 'Conflict avoidant', belief: '\u201cIf I show my true self, I\u2019ll be rejected.\u201d', wound: 'Rejection', trigger: 'Harsh criticism, ridicule, public humiliation, dismissing or invalidating their feelings.' },
+      { type: 'Confident leader', belief: '\u201cI can handle this.\u201d', wound: 'May not have a dominant core wound', trigger: 'Usually doesn\u2019t have one specific trigger; reactions depend more on personality, values, and life experiences than on a single underlying wound.' }
+    ];
+
+    var woundGuideBtn = document.getElementById('woundGuideBtn');
+    var woundGuidePanel = document.getElementById('woundGuidePanel');
+    var guideBuilt = false;
+
+    woundGuideBtn.addEventListener('click', function(){
+      if (!guideBuilt){
+        var headers = ['Personality type', 'Core belief', 'Likely underlying wound', 'What typically triggers the wound'];
+        var html = '<div class="wg-scroll"><div class="wg-grid">';
+        headers.forEach(function(h){
+          html += '<div class="wg-cell wg-head' + (h === 'Personality type' ? ' wg-sticky' : '') + '">' + h + '</div>';
+        });
+        WOUND_GUIDE.forEach(function(row, i){
+          var alt = (i % 2 === 1) ? ' wg-alt' : '';
+          html += '<div class="wg-cell' + alt + ' wg-sticky">' + row.type + '</div>';
+          html += '<div class="wg-cell' + alt + '"><span class="wg-belief-text">' + row.belief + '</span></div>';
+          html += '<div class="wg-cell' + alt + '">' + row.wound + '</div>';
+          html += '<div class="wg-cell' + alt + '">' + row.trigger + '</div>';
+        });
+        html += '</div></div>';
+        woundGuidePanel.innerHTML = html;
+        guideBuilt = true;
+      }
+      var isHidden = woundGuidePanel.classList.contains('hidden');
+      woundGuidePanel.classList.toggle('hidden');
+      woundGuideBtn.innerHTML = isHidden ? 'Hide<br>Trauma<br>Guide' : 'Trauma<br>Guide';
+    });
+
     var TESTS = [
       {
         key: 'corewound',
