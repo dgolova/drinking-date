@@ -383,6 +383,8 @@ import { ARCHETYPE_GUIDE, ARCHETYPE_INFO, ARCHETYPE_QUESTIONS } from './assets/d
 import { ARCHETYPE_GUIDE_F, ARCHETYPE_INFO_F, ARCHETYPE_QUESTIONS_F } from './assets/data/women-archetypes-test.js';
 import { MBTI_QUESTIONS, MBTI_TYPES, MBTI_GUIDE } from './assets/data/mbti-test.js';
 import { STRESS_STYLE_QUESTIONS, STRESS_STYLE_INFO, STRESS_STYLE_GUIDE } from './assets/data/stress-style-test.js';
+import { DISC_QUESTIONS, DISC_INFO, DISC_GUIDE } from './assets/data/disc-test.js';
+import { OCEAN_QUESTIONS, OCEAN_INFO, OCEAN_GUIDE } from './assets/data/ocean-test.js';
 
 (function(){
 
@@ -535,6 +537,32 @@ import { STRESS_STYLE_QUESTIONS, STRESS_STYLE_INFO, STRESS_STYLE_GUIDE } from '.
         guideColumns: ['Style', 'What it\u2019s about', 'When it runs high', 'When it runs low'],
         guideRows: STRESS_STYLE_GUIDE.map(function(r){ return [r.type, r.focus, r.high, r.low]; }),
         guideQuoteCol: null
+      },
+      {
+        key: 'disc',
+        tagline: 'Your DiSC Style',
+        goal: 'A 12-question look at how you communicate, decide, and work with others.',
+        questions: DISC_QUESTIONS,
+        resultInfo: DISC_INFO,
+        baselineKey: null,
+        secondaryThreshold: 60,
+        guideLabel: 'DiSC',
+        guideColumns: ['Trait', 'Primary Drive & Focus', 'High Behavior Profile', 'Communication & Work Style'],
+        guideRows: DISC_GUIDE.map(function(r){ return [r.type, r.focus, r.high, r.style]; }),
+        guideQuoteCol: null
+      },
+      {
+        key: 'ocean',
+        tagline: 'Your Big Five (OCEAN) Profile',
+        goal: 'A 15-item look at where you sit on five core personality spectrums.',
+        questions: OCEAN_QUESTIONS,
+        resultInfo: OCEAN_INFO,
+        mode: 'likert',
+        profileTitle: 'Your OCEAN Profile',
+        guideLabel: 'OCEAN',
+        guideColumns: ['Trait', 'Primary Focus', 'High Score Characteristics', 'Low Score Characteristics'],
+        guideRows: OCEAN_GUIDE.map(function(r){ return [r.type, r.focus, r.high, r.low]; }),
+        guideQuoteCol: null
       }
     ];
 
@@ -632,7 +660,12 @@ import { STRESS_STYLE_QUESTIONS, STRESS_STYLE_INFO, STRESS_STYLE_GUIDE } from '.
         b.className = 'quiz-option';
         b.textContent = opt.text;
         b.addEventListener('click', function(){
-          if (opt.w){ scores[opt.w] = (scores[opt.w] || 0) + 1; }
+          if (activeTest.mode === 'likert'){
+            var adjusted = q.reverse ? (6 - opt.value) : opt.value;
+            scores[q.trait] = (scores[q.trait] || 0) + adjusted;
+          } else if (opt.w){
+            scores[opt.w] = (scores[opt.w] || 0) + 1;
+          }
           qIndex++;
           if (qIndex < total){
             renderQuestion();
@@ -661,6 +694,32 @@ import { STRESS_STYLE_QUESTIONS, STRESS_STYLE_INFO, STRESS_STYLE_GUIDE } from '.
         dHtml += '<div class="quiz-result-blurb">Common growth edge: ' + info.weaknesses + '. Naturally compatible with: ' + info.matches + '.</div>';
 
         quizResultCard.innerHTML = dHtml;
+        quizResultCard.classList.remove('flip-anim');
+        void quizResultCard.offsetWidth;
+        quizResultCard.classList.add('flip-anim');
+        return;
+      }
+
+      if (activeTest.mode === 'likert'){
+        var countByTrait = {};
+        activeTest.questions.forEach(function(q){ countByTrait[q.trait] = (countByTrait[q.trait] || 0) + 1; });
+
+        var lHtml = '<div class="quiz-result-name">' + (activeTest.profileTitle || 'Your Profile') + '</div>';
+        Object.keys(activeTest.resultInfo).forEach(function(trait){
+          var n = countByTrait[trait] || 1;
+          var min = n * 1, max = n * 5;
+          var raw = scores[trait] || min;
+          var pct = Math.round(((raw - min) / (max - min)) * 100);
+          var level = pct >= 67 ? 'High' : (pct <= 33 ? 'Low' : 'Moderate');
+          var info = activeTest.resultInfo[trait];
+          var desc = pct >= 67 ? info.highDesc : (pct <= 33 ? info.lowDesc : 'A blend of both sides, leaning on context more than a fixed tendency.');
+          lHtml +=
+            '<div class="quiz-secondary" style="margin-top:14px; padding-top:14px;">' +
+              '<b>' + info.name + '</b> \u2014 ' + level + ' (' + pct + '%)<br>' + desc +
+            '</div>';
+        });
+
+        quizResultCard.innerHTML = lHtml;
         quizResultCard.classList.remove('flip-anim');
         void quizResultCard.offsetWidth;
         quizResultCard.classList.add('flip-anim');
